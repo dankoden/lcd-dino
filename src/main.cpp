@@ -793,28 +793,16 @@ void handlePlayPauseButton() {
   }
 }
 
-bool learnedCodeMatches(
-  bool enabled,
-  uint8_t expectedProtocol,
-  uint16_t expectedAddress,
-  uint16_t expectedCommand,
-  uint32_t expectedRaw,
-  const IRData& data,
-  uint16_t command
-) {
-  if (!enabled) {
-    return false;
-  }
-
+bool learnedCodeMatches(const LearnedIrCode& expected, const IRData& data, uint16_t command) {
   const uint8_t protocol = static_cast<uint8_t>(data.protocol);
 
-  if (expectedRaw != 0 && data.decodedRawData == expectedRaw) {
+  if (expected.raw != 0 && data.decodedRawData == expected.raw) {
     return true;
   }
 
-  if (expectedCommand != 0 && command == expectedCommand) {
-    const bool protocolMatches = expectedProtocol == 0 || expectedProtocol == protocol;
-    const bool addressMatches = expectedAddress == data.address;
+  if (expected.command != 0 && command == expected.command) {
+    const bool protocolMatches = expected.protocol == 0 || expected.protocol == protocol;
+    const bool addressMatches = expected.address == data.address;
     return protocolMatches && addressMatches;
   }
 
@@ -822,27 +810,23 @@ bool learnedCodeMatches(
 }
 
 bool isLearnedPlayCommand(const IRData& data, uint16_t command) {
-  return learnedCodeMatches(
-    IR_LEARNED_PLAY_ENABLED,
-    IR_LEARNED_PLAY_PROTOCOL,
-    IR_LEARNED_PLAY_ADDRESS,
-    IR_LEARNED_PLAY_COMMAND,
-    IR_LEARNED_PLAY_RAW,
-    data,
-    command
-  );
+  for (uint8_t i = 0; i < IR_LEARNED_PLAY_COUNT; i++) {
+    if (learnedCodeMatches(IR_LEARNED_PLAY_CODES[i], data, command)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool isLearnedJumpCommand(const IRData& data, uint16_t command) {
-  return learnedCodeMatches(
-    IR_LEARNED_JUMP_ENABLED,
-    IR_LEARNED_JUMP_PROTOCOL,
-    IR_LEARNED_JUMP_ADDRESS,
-    IR_LEARNED_JUMP_COMMAND,
-    IR_LEARNED_JUMP_RAW,
-    data,
-    command
-  );
+  for (uint8_t i = 0; i < IR_LEARNED_JUMP_COUNT; i++) {
+    if (learnedCodeMatches(IR_LEARNED_JUMP_CODES[i], data, command)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool isStandardJumpCommand(uint16_t command) {

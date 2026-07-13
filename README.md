@@ -145,7 +145,7 @@ Serial output includes protocol, address, normalized command, raw decoded data, 
 
 ## Learning Another Remote
 
-For remotes that do not behave like a simple NEC keypad, use the learner workflow. This is useful for remotes that produce different `raw` packets or do not expose stable button commands.
+For remotes that do not behave like a simple NEC keypad, use the learner workflow. This is useful for remotes that produce different `raw` packets or do not expose stable button commands. Air-conditioner remotes often send a changing state packet for the same physical button, so the learner captures multiple samples.
 
 1. Upload the IR LCD test firmware:
 
@@ -156,20 +156,20 @@ For remotes that do not behave like a simple NEC keypad, use the learner workflo
 2. Run the learner:
 
    ```sh
-   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --build-game
+   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 10 --build-game
    ```
 
 3. Follow the prompts:
 
-   - press the button you want to use as `PLAY` / start / pause / replay
-   - press the button you want to use as `JUMP`
+   - press the same `PLAY` / start / pause / replay button 10 times
+   - press the same `JUMP` button 10 times
 
-The learner writes `include/ir_codes.h`. The main game includes this file and matches learned IR packets by command and raw decoded data.
+The learner writes unique packets to `include/ir_codes.h`. Duplicate packets inside one action are merged. Packets that appear in both `PLAY` and `JUMP` are treated as ambiguous and ignored, because they cannot safely represent two different actions.
 
 To learn and immediately upload the game:
 
 ```sh
-python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --upload-test --upload-game
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 10 --upload-test --upload-game
 ```
 
 If `pyserial` is missing:
