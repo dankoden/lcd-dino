@@ -793,57 +793,30 @@ void handlePlayPauseButton() {
   }
 }
 
-uint32_t computeRawFingerprint() {
-  uint32_t hash = 2166136261UL;
-  const uint16_t rawlen = IrReceiver.irparams.rawlen;
-
-  hash ^= rawlen & 0xFF;
-  hash *= 16777619UL;
-  hash ^= rawlen >> 8;
-  hash *= 16777619UL;
-
-  for (uint16_t index = 1; index < rawlen; index++) {
-    const uint8_t normalizedTick = (IrReceiver.irparams.rawbuf[index] + 2) / 4;
-    hash ^= normalizedTick;
-    hash *= 16777619UL;
-    hash ^= index & 1;
-    hash *= 16777619UL;
-  }
-
-  return hash;
-}
-
-bool learnedCodeMatches(const LearnedIrCode& expected, const IRData& data, uint16_t command, uint32_t fingerprint) {
+bool learnedCodeMatches(const LearnedIrCode& expected, const IRData& data, uint16_t command) {
   const uint8_t protocol = static_cast<uint8_t>(data.protocol);
+  const bool protocolMatches = expected.protocol == 0 || expected.protocol == protocol;
+  const bool addressMatches = expected.address == data.address;
 
-  if (expected.fingerprint != 0 &&
-      expected.rawlen == IrReceiver.irparams.rawlen &&
-      expected.fingerprint == fingerprint) {
-    return true;
+  if (expected.command != 0) {
+    return data.command != 0 &&
+           command == expected.command &&
+           protocolMatches &&
+           addressMatches;
   }
 
-  if (expected.rawlen != 0 &&
-      expected.raw != 0 &&
-      expected.rawlen == IrReceiver.irparams.rawlen &&
-      expected.raw == data.decodedRawData) {
-    return true;
-  }
-
-  if (expected.command != 0 && data.command != 0 && command == expected.command) {
-    const bool protocolMatches = expected.protocol == 0 || expected.protocol == protocol;
-    const bool addressMatches = expected.address == data.address;
-    return protocolMatches && addressMatches;
-  }
-
-  return false;
+  return expected.raw != 0 &&
+         data.decodedRawData == expected.raw &&
+         protocolMatches &&
+         addressMatches;
 }
 
-bool isLearnedPlayCommand(const IRData& data, uint16_t command, uint32_t fingerprint) {
+bool isLearnedPlayCommand(const IRData& data, uint16_t command) {
   for (uint8_t i = 0; i < IR_LEARNED_PLAY_COUNT; i++) {
     LearnedIrCode learnedCode;
     memcpy_P(&learnedCode, &IR_LEARNED_PLAY_CODES[i], sizeof(learnedCode));
 
-    if (learnedCodeMatches(learnedCode, data, command, fingerprint)) {
+    if (learnedCodeMatches(learnedCode, data, command)) {
       return true;
     }
   }
@@ -851,12 +824,12 @@ bool isLearnedPlayCommand(const IRData& data, uint16_t command, uint32_t fingerp
   return false;
 }
 
-bool isLearnedJumpCommand(const IRData& data, uint16_t command, uint32_t fingerprint) {
+bool isLearnedJumpCommand(const IRData& data, uint16_t command) {
   for (uint8_t i = 0; i < IR_LEARNED_JUMP_COUNT; i++) {
     LearnedIrCode learnedCode;
     memcpy_P(&learnedCode, &IR_LEARNED_JUMP_CODES[i], sizeof(learnedCode));
 
-    if (learnedCodeMatches(learnedCode, data, command, fingerprint)) {
+    if (learnedCodeMatches(learnedCode, data, command)) {
       return true;
     }
   }
@@ -865,6 +838,10 @@ bool isLearnedJumpCommand(const IRData& data, uint16_t command, uint32_t fingerp
 }
 
 bool isStandardJumpCommand(const IRData& data, uint16_t command) {
+  if (IR_LEARNED_JUMP_COUNT > 0) {
+    return false;
+  }
+
   if (data.command == 0) {
     return false;
   }
@@ -874,22 +851,29 @@ bool isStandardJumpCommand(const IRData& data, uint16_t command) {
          command == CMD_JUMP_VOL_UP;
 }
 
-bool isPlayCommand(const IRData& data, uint16_t command, uint32_t fingerprint) {
-  return (data.command != 0 && command == CMD_PLAY_PAUSE) ||
-         isLearnedPlayCommand(data, command, fingerprint);
+bool isPlayCommand(const IRData& data, uint16_t command) {
+  if (IR_LEARNED_PLAY_COUNT > 0) {
+    return isLearnedPlayCommand(data, command);
+  }
+
+  return data.command != 0 && command == CMD_PLAY_PAUSE;
 }
 
-bool isJumpCommand(const IRData& data, uint16_t command, uint32_t fingerprint) {
-  return isStandardJumpCommand(data, command) || isLearnedJumpCommand(data, command, fingerprint);
+bool isJumpCommand(const IRData& data, uint16_t command) {
+  if (IR_LEARNED_JUMP_COUNT > 0) {
+    return isLearnedJumpCommand(data, command);
+  }
+
+  return isStandardJumpCommand(data, command);
 }
 
-void handleRemoteCommand(const IRData& data, uint16_t command, uint32_t fingerprint) {
-  if (isPlayCommand(data, command, fingerprint)) {
+void handleRemoteCommand(const IRData& data, uint16_t command) {
+  if (isPlayCommand(data, command)) {
     handlePlayPauseButton();
     return;
   }
 
-  if (isJumpCommand(data, command, fingerprint)) {
+  if (isJumpCommand(data, command)) {
     startJump();
   }
 }
@@ -904,7 +888,7 @@ uint16_t normalizeIrCommand(const IRData& data) {
   return rawCommand;
 }
 
-void printIrDebug(const IRData& data, uint16_t command, uint32_t fingerprint, bool accepted) {
+void printIrDebug(const IRData& data, uint16_t command, bool accepted) {
   if (!IR_DEBUG) {
     return;
   }
@@ -919,17 +903,13 @@ void printIrDebug(const IRData& data, uint16_t command, uint32_t fingerprint, bo
   Serial.print(command, HEX);
   Serial.print(F(" raw=0x"));
   Serial.print(data.decodedRawData, HEX);
-  Serial.print(F(" rawlen="));
-  Serial.print(IrReceiver.irparams.rawlen);
-  Serial.print(F(" fp=0x"));
-  Serial.print(fingerprint, HEX);
   Serial.print(F(" flags=0x"));
   Serial.print(data.flags, HEX);
   Serial.print(F(" accepted="));
   Serial.println(accepted ? F("yes") : F("no"));
 }
 
-bool shouldAcceptIrCommand(const IRData& data, uint16_t command, uint32_t fingerprint, bool isRepeat) {
+bool shouldAcceptIrCommand(const IRData& data, uint16_t command, bool isRepeat) {
   if (command == 0 && data.decodedRawData == 0) {
     return false;
   }
@@ -938,7 +918,7 @@ bool shouldAcceptIrCommand(const IRData& data, uint16_t command, uint32_t finger
 
   // Holding PLAY should not rapidly pause/resume, but the first PLAY after
   // Game Over must be accepted. finishGame() clears this debounce state.
-  if (isRepeat && isPlayCommand(data, command, fingerprint)) {
+  if (isRepeat && isPlayCommand(data, command)) {
     return false;
   }
 
@@ -961,14 +941,13 @@ void readRemote() {
 
   const IRData& data = IrReceiver.decodedIRData;
   const uint16_t command = normalizeIrCommand(data);
-  const uint32_t fingerprint = computeRawFingerprint();
   const bool isRepeat = (data.flags & IRDATA_FLAGS_IS_REPEAT) != 0;
-  const bool accepted = shouldAcceptIrCommand(data, command, fingerprint, isRepeat);
+  const bool accepted = shouldAcceptIrCommand(data, command, isRepeat);
 
-  printIrDebug(data, command, fingerprint, accepted);
+  printIrDebug(data, command, accepted);
 
   if (accepted) {
-    handleRemoteCommand(data, command, fingerprint);
+    handleRemoteCommand(data, command);
   }
 
   IrReceiver.resume();

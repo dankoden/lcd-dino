@@ -145,7 +145,7 @@ Serial output includes protocol, address, normalized command, raw decoded data, 
 
 ## Learning Another Remote
 
-For remotes that do not behave like a simple NEC keypad, use the learner workflow. This is useful for remotes that produce different `raw` packets or do not expose stable button commands. Air-conditioner remotes often send a changing state packet for the same physical button, so the learner captures multiple samples.
+Use the learner workflow when you want to bind two buttons from a normal IR remote: one for `PLAY` / pause / replay, and one for `JUMP`.
 
 1. Upload the IR LCD test firmware:
 
@@ -156,23 +156,20 @@ For remotes that do not behave like a simple NEC keypad, use the learner workflo
 2. Run the learner:
 
    ```sh
-   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 30 --build-game
+   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --build-game
    ```
 
 3. Follow the prompts:
 
-   - press the same `PLAY` / start / pause / replay button 30 times
-   - wait 10 seconds while the LCD shows the transition prompt
-   - press the same `JUMP` button 30 times
+   - press the `PLAY` / start / pause / replay button once
+   - press the `JUMP` button once
 
-The learner writes unique packets to `include/ir_codes.h`. For long or stateful remotes, the game matches the learned raw-buffer fingerprint instead of trusting one short command byte. Duplicate packets inside one action are merged. Packets that appear in both `PLAY` and `JUMP` are treated as ambiguous and ignored, because they cannot safely represent two different actions.
-
-After this learner flow, upload the main game again. Old learned rows without `rawlen` and `fingerprint` are intentionally not trusted for stateful remotes because they can make unrelated buttons look like `PLAY` or `JUMP`.
+The learner writes the two button codes to `include/ir_codes.h`. If learned codes are present, the game uses only those learned buttons for `PLAY` and `JUMP`.
 
 To learn and immediately upload the game:
 
 ```sh
-python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 30 --between-delay 10 --upload-test --upload-game
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --upload-test --upload-game
 ```
 
 If `pyserial` is missing:
