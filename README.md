@@ -165,7 +165,9 @@ For remotes that do not behave like a simple NEC keypad, use the learner workflo
    - wait 10 seconds while the LCD shows the transition prompt
    - press the same `JUMP` button 30 times
 
-The learner writes unique packets to `include/ir_codes.h`. Duplicate packets inside one action are merged. Packets that appear in both `PLAY` and `JUMP` are treated as ambiguous and ignored, because they cannot safely represent two different actions.
+The learner writes unique packets to `include/ir_codes.h`. For long or stateful remotes, the game matches the learned raw-buffer fingerprint instead of trusting one short command byte. Duplicate packets inside one action are merged. Packets that appear in both `PLAY` and `JUMP` are treated as ambiguous and ignored, because they cannot safely represent two different actions.
+
+After this learner flow, upload the main game again. Old learned rows without `rawlen` and `fingerprint` are intentionally not trusted for stateful remotes because they can make unrelated buttons look like `PLAY` or `JUMP`.
 
 To learn and immediately upload the game:
 

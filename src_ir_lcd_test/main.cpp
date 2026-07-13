@@ -19,6 +19,26 @@ uint8_t lastIrPinLevel = HIGH;
 uint16_t irPinEdgeCount = 0;
 unsigned long lastIrActivityReportTime = 0;
 
+uint32_t computeRawFingerprint() {
+  uint32_t hash = 2166136261UL;
+  const uint16_t rawlen = IrReceiver.irparams.rawlen;
+
+  hash ^= rawlen & 0xFF;
+  hash *= 16777619UL;
+  hash ^= rawlen >> 8;
+  hash *= 16777619UL;
+
+  for (uint16_t index = 1; index < rawlen; index++) {
+    const uint8_t normalizedTick = (IrReceiver.irparams.rawbuf[index] + 2) / 4;
+    hash ^= normalizedTick;
+    hash *= 16777619UL;
+    hash ^= index & 1;
+    hash *= 16777619UL;
+  }
+
+  return hash;
+}
+
 uint16_t normalizeIrCommand(const IRData& data) {
   if (data.command != 0) {
     return data.command;
@@ -92,6 +112,10 @@ void printSerialDebug(const IRData& data, uint16_t command, bool isRepeat) {
   Serial.print(command, HEX);
   Serial.print(F(" raw=0x"));
   Serial.print(data.decodedRawData, HEX);
+  Serial.print(F(" rawlen="));
+  Serial.print(IrReceiver.irparams.rawlen);
+  Serial.print(F(" fp=0x"));
+  Serial.print(computeRawFingerprint(), HEX);
   Serial.print(F(" flags=0x"));
   Serial.print(data.flags, HEX);
   Serial.print(F(" repeat="));
@@ -109,6 +133,10 @@ void printLearnLine(const char* label, const IRData& data, uint16_t command, boo
   Serial.print(command, HEX);
   Serial.print(F(" raw=0x"));
   Serial.print(data.decodedRawData, HEX);
+  Serial.print(F(" rawlen="));
+  Serial.print(IrReceiver.irparams.rawlen);
+  Serial.print(F(" fp=0x"));
+  Serial.print(computeRawFingerprint(), HEX);
   Serial.print(F(" flags=0x"));
   Serial.print(data.flags, HEX);
   Serial.print(F(" repeat="));
