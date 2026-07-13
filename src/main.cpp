@@ -1,7 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#define RAW_BUFFER_LENGTH 260
 #include <IRremote.hpp>
+#include "ir_codes.h"
 
 constexpr uint8_t IR_PIN = 4;
 constexpr uint8_t RED_LED_PIN = 8;
@@ -154,6 +156,7 @@ unsigned long lastPauseBlinkTime = 0;
 unsigned long lastAcceptedIrTime = 0;
 unsigned long gameOverStartTime = 0;
 uint16_t lastAcceptedIrCommand = 0;
+uint32_t lastAcceptedIrRaw = 0;
 
 bool alternateRunFrame = false;
 bool pauseLedState = false;
@@ -607,6 +610,7 @@ void generateNewCactus() {
 void resetIrDebounce() {
   lastAcceptedIrTime = 0;
   lastAcceptedIrCommand = 0;
+  lastAcceptedIrRaw = 0;
 }
 
 void startNewGame() {
@@ -789,19 +793,79 @@ void handlePlayPauseButton() {
   }
 }
 
-bool isJumpCommand(uint16_t command) {
+bool learnedCodeMatches(
+  bool enabled,
+  uint8_t expectedProtocol,
+  uint16_t expectedAddress,
+  uint16_t expectedCommand,
+  uint32_t expectedRaw,
+  const IRData& data,
+  uint16_t command
+) {
+  if (!enabled) {
+    return false;
+  }
+
+  const uint8_t protocol = static_cast<uint8_t>(data.protocol);
+
+  if (expectedRaw != 0 && data.decodedRawData == expectedRaw) {
+    return true;
+  }
+
+  if (expectedCommand != 0 && command == expectedCommand) {
+    const bool protocolMatches = expectedProtocol == 0 || expectedProtocol == protocol;
+    const bool addressMatches = expectedAddress == data.address;
+    return protocolMatches && addressMatches;
+  }
+
+  return false;
+}
+
+bool isLearnedPlayCommand(const IRData& data, uint16_t command) {
+  return learnedCodeMatches(
+    IR_LEARNED_PLAY_ENABLED,
+    IR_LEARNED_PLAY_PROTOCOL,
+    IR_LEARNED_PLAY_ADDRESS,
+    IR_LEARNED_PLAY_COMMAND,
+    IR_LEARNED_PLAY_RAW,
+    data,
+    command
+  );
+}
+
+bool isLearnedJumpCommand(const IRData& data, uint16_t command) {
+  return learnedCodeMatches(
+    IR_LEARNED_JUMP_ENABLED,
+    IR_LEARNED_JUMP_PROTOCOL,
+    IR_LEARNED_JUMP_ADDRESS,
+    IR_LEARNED_JUMP_COMMAND,
+    IR_LEARNED_JUMP_RAW,
+    data,
+    command
+  );
+}
+
+bool isStandardJumpCommand(uint16_t command) {
   return command == CMD_JUMP_OK_OR_5 ||
          command == CMD_JUMP_UP ||
          command == CMD_JUMP_VOL_UP;
 }
 
-void handleRemoteCommand(uint16_t command) {
-  if (command == CMD_PLAY_PAUSE) {
+bool isPlayCommand(const IRData& data, uint16_t command) {
+  return command == CMD_PLAY_PAUSE || isLearnedPlayCommand(data, command);
+}
+
+bool isJumpCommand(const IRData& data, uint16_t command) {
+  return isStandardJumpCommand(command) || isLearnedJumpCommand(data, command);
+}
+
+void handleRemoteCommand(const IRData& data, uint16_t command) {
+  if (isPlayCommand(data, command)) {
     handlePlayPauseButton();
     return;
   }
 
-  if (isJumpCommand(command)) {
+  if (isJumpCommand(data, command)) {
     startJump();
   }
 }
@@ -837,8 +901,8 @@ void printIrDebug(const IRData& data, uint16_t command, bool accepted) {
   Serial.println(accepted ? F("yes") : F("no"));
 }
 
-bool shouldAcceptIrCommand(uint16_t command, bool isRepeat) {
-  if (command == 0) {
+bool shouldAcceptIrCommand(const IRData& data, uint16_t command, bool isRepeat) {
+  if (command == 0 && data.decodedRawData == 0) {
     return false;
   }
 
@@ -846,15 +910,18 @@ bool shouldAcceptIrCommand(uint16_t command, bool isRepeat) {
 
   // Holding PLAY should not rapidly pause/resume, but the first PLAY after
   // Game Over must be accepted. finishGame() clears this debounce state.
-  if (isRepeat && command == CMD_PLAY_PAUSE) {
+  if (isRepeat && isPlayCommand(data, command)) {
     return false;
   }
 
-  if (command == lastAcceptedIrCommand && now - lastAcceptedIrTime < IR_DEBOUNCE_MS) {
+  if (command == lastAcceptedIrCommand &&
+      data.decodedRawData == lastAcceptedIrRaw &&
+      now - lastAcceptedIrTime < IR_DEBOUNCE_MS) {
     return false;
   }
 
   lastAcceptedIrCommand = command;
+  lastAcceptedIrRaw = data.decodedRawData;
   lastAcceptedIrTime = now;
   return true;
 }
@@ -867,12 +934,12 @@ void readRemote() {
   const IRData& data = IrReceiver.decodedIRData;
   const uint16_t command = normalizeIrCommand(data);
   const bool isRepeat = (data.flags & IRDATA_FLAGS_IS_REPEAT) != 0;
-  const bool accepted = shouldAcceptIrCommand(command, isRepeat);
+  const bool accepted = shouldAcceptIrCommand(data, command, isRepeat);
 
   printIrDebug(data, command, accepted);
 
   if (accepted) {
-    handleRemoteCommand(command);
+    handleRemoteCommand(data, command);
   }
 
   IrReceiver.resume();

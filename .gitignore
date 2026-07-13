@@ -6,4 +6,5 @@
 *.elf
 *.hex
 *.bin
+__pycache__/
 

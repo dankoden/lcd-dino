@@ -143,6 +143,41 @@ pio device monitor --baud 9600
 
 Serial output includes protocol, address, normalized command, raw decoded data, flags, and repeat state.
 
+## Learning Another Remote
+
+For remotes that do not behave like a simple NEC keypad, use the learner workflow. This is useful for remotes that produce different `raw` packets or do not expose stable button commands.
+
+1. Upload the IR LCD test firmware:
+
+   ```sh
+   pio run -e ir_lcd_test -t upload --upload-port /dev/cu.usbserial-110
+   ```
+
+2. Run the learner:
+
+   ```sh
+   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --build-game
+   ```
+
+3. Follow the prompts:
+
+   - press the button you want to use as `PLAY` / start / pause / replay
+   - press the button you want to use as `JUMP`
+
+The learner writes `include/ir_codes.h`. The main game includes this file and matches learned IR packets by command and raw decoded data.
+
+To learn and immediately upload the game:
+
+```sh
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --upload-test --upload-game
+```
+
+If `pyserial` is missing:
+
+```sh
+python3 -m pip install pyserial
+```
+
 ## Project Layout
 
 ```text
@@ -152,8 +187,12 @@ Serial output includes protocol, address, normalized command, raw decoded data, 
 │   └── main.cpp
 ├── src_ir_lcd_test/
 │   └── main.cpp
-└── src_led_test/
-    └── main.cpp
+├── src_led_test/
+│   └── main.cpp
+├── include/
+│   └── ir_codes.h
+└── tools/
+    └── learn_ir_codes.py
 ```
 
 ## Notes

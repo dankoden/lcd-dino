@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#define RAW_BUFFER_LENGTH 260
 #include <IRremote.hpp>
 
 constexpr uint8_t IR_PIN = 4;
@@ -10,7 +11,13 @@ constexpr uint8_t LCD_ROWS = 2;
 LiquidCrystal_I2C lcd(0x27, LCD_COLUMNS, LCD_ROWS);
 
 uint16_t lastCommand = 0xFFFF;
+uint32_t lastRaw = 0;
 bool lastWasRepeat = false;
+char captureLabel[8] = "";
+bool captureArmed = false;
+uint8_t lastIrPinLevel = HIGH;
+uint16_t irPinEdgeCount = 0;
+unsigned long lastIrActivityReportTime = 0;
 
 uint16_t normalizeIrCommand(const IRData& data) {
   if (data.command != 0) {
@@ -35,6 +42,15 @@ void showWaitingScreen() {
   lcd.print(F("IR LCD TEST"));
   lcd.setCursor(0, 1);
   lcd.print(F("PRESS REMOTE"));
+}
+
+void showCapturePrompt(const char* label) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(F("LEARN "));
+  lcd.print(label);
+  lcd.setCursor(0, 1);
+  lcd.print(F("PRESS BUTTON"));
 }
 
 void showCommand(uint16_t command, bool isRepeat) {
@@ -74,8 +90,74 @@ void printSerialDebug(const IRData& data, uint16_t command, bool isRepeat) {
   Serial.println(isRepeat ? F("yes") : F("no"));
 }
 
+void printLearnLine(const char* label, const IRData& data, uint16_t command, bool isRepeat) {
+  Serial.print(F("LEARN label="));
+  Serial.print(label);
+  Serial.print(F(" protocol="));
+  Serial.print(static_cast<uint8_t>(data.protocol));
+  Serial.print(F(" address=0x"));
+  Serial.print(data.address, HEX);
+  Serial.print(F(" command=0x"));
+  Serial.print(command, HEX);
+  Serial.print(F(" raw=0x"));
+  Serial.print(data.decodedRawData, HEX);
+  Serial.print(F(" flags=0x"));
+  Serial.print(data.flags, HEX);
+  Serial.print(F(" repeat="));
+  Serial.println(isRepeat ? F("yes") : F("no"));
+}
+
+void pollSerialCommands() {
+  if (!Serial.available()) {
+    return;
+  }
+
+  const char command = Serial.read();
+
+  if (command == 'P') {
+    strcpy(captureLabel, "PLAY");
+    captureArmed = true;
+    showCapturePrompt(captureLabel);
+    Serial.println(F("READY label=PLAY"));
+    return;
+  }
+
+  if (command == 'J') {
+    strcpy(captureLabel, "JUMP");
+    captureArmed = true;
+    showCapturePrompt(captureLabel);
+    Serial.println(F("READY label=JUMP"));
+    return;
+  }
+
+  if (command == 'I') {
+    showWaitingScreen();
+    Serial.println(F("IR LCD test ready. Send P to learn PLAY, J to learn JUMP."));
+  }
+}
+
+void updateIrActivityDebug() {
+  const uint8_t level = digitalRead(IR_PIN);
+
+  if (level != lastIrPinLevel) {
+    lastIrPinLevel = level;
+    irPinEdgeCount++;
+  }
+
+  const unsigned long now = millis();
+  if (irPinEdgeCount > 0 && now - lastIrActivityReportTime >= 300) {
+    Serial.print(F("IR_ACTIVITY edges="));
+    Serial.print(irPinEdgeCount);
+    Serial.print(F(" level="));
+    Serial.println(level == HIGH ? F("HIGH") : F("LOW"));
+    irPinEdgeCount = 0;
+    lastIrActivityReportTime = now;
+  }
+}
+
 void setup() {
   Serial.begin(9600);
+  pinMode(IR_PIN, INPUT);
 
   Wire.begin();
   Wire.setClock(400000);
@@ -86,10 +168,13 @@ void setup() {
 
   IrReceiver.begin(IR_PIN, DISABLE_LED_FEEDBACK);
 
-  Serial.println(F("IR LCD test ready. Press remote buttons."));
+  Serial.println(F("IR LCD test ready. Send P to learn PLAY, J to learn JUMP."));
 }
 
 void loop() {
+  pollSerialCommands();
+  updateIrActivityDebug();
+
   if (!IrReceiver.decode()) {
     return;
   }
@@ -98,13 +183,26 @@ void loop() {
   const bool isRepeat = (data.flags & IRDATA_FLAGS_IS_REPEAT) != 0;
   const uint16_t command = normalizeIrCommand(data);
 
-  if (command != 0 && (!isRepeat || command != lastCommand || !lastWasRepeat)) {
+  const bool hasPayload = command != 0 || data.decodedRawData != 0;
+  const bool isDuplicate =
+    isRepeat &&
+    command == lastCommand &&
+    data.decodedRawData == lastRaw &&
+    lastWasRepeat;
+
+  if (hasPayload && !isDuplicate) {
     showCommand(command, isRepeat);
     printSerialDebug(data, command, isRepeat);
+
+    if (captureArmed && !isRepeat) {
+      printLearnLine(captureLabel, data, command, isRepeat);
+      captureArmed = false;
+    }
+
     lastCommand = command;
+    lastRaw = data.decodedRawData;
     lastWasRepeat = isRepeat;
   }
 
   IrReceiver.resume();
 }
-
