@@ -7,10 +7,10 @@ constexpr bool IR_LEARNED_PLAY_ENABLED = true;
 constexpr uint8_t IR_LEARNED_PLAY_PROTOCOL = 2;
 constexpr uint16_t IR_LEARNED_PLAY_ADDRESS = 0x0000;
 constexpr uint16_t IR_LEARNED_PLAY_COMMAND = 0x0000;
-constexpr uint32_t IR_LEARNED_PLAY_RAW = 0x0000CE00UL;
+constexpr uint32_t IR_LEARNED_PLAY_RAW = 0x0000CF00UL;
 
 constexpr bool IR_LEARNED_JUMP_ENABLED = true;
 constexpr uint8_t IR_LEARNED_JUMP_PROTOCOL = 2;
 constexpr uint16_t IR_LEARNED_JUMP_ADDRESS = 0x0000;
 constexpr uint16_t IR_LEARNED_JUMP_COMMAND = 0x0000;
-constexpr uint32_t IR_LEARNED_JUMP_RAW = 0x0000CC00UL;
+constexpr uint32_t IR_LEARNED_JUMP_RAW = 0x00009700UL;
