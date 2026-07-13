@@ -834,7 +834,7 @@ bool isLearnedPlayCommand(const IRData& data, uint16_t command) {
 }
 
 bool isLearnedJumpCommand(const IRData& data, uint16_t command) {
-  if (learnedCodeMatches(
+  return learnedCodeMatches(
     IR_LEARNED_JUMP_ENABLED,
     IR_LEARNED_JUMP_PROTOCOL,
     IR_LEARNED_JUMP_ADDRESS,
@@ -842,15 +842,7 @@ bool isLearnedJumpCommand(const IRData& data, uint16_t command) {
     IR_LEARNED_JUMP_RAW,
     data,
     command
-  )) {
-    return true;
-  }
-
-  const uint32_t raw = data.decodedRawData;
-  return raw != 0 &&
-         (raw == IR_LEARNED_JUMP_RAW_ALT_1 ||
-          raw == IR_LEARNED_JUMP_RAW_ALT_2 ||
-          raw == IR_LEARNED_JUMP_RAW_ALT_3);
+  );
 }
 
 bool isStandardJumpCommand(uint16_t command) {
