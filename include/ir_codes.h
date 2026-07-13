@@ -12,13 +12,14 @@ struct LearnedIrCode {
 
 constexpr uint8_t IR_LEARNED_PLAY_COUNT = 4;
 constexpr LearnedIrCode IR_LEARNED_PLAY_CODES[] = {
-  {2, 0x0000, 0x0000, 0x0000D300UL},
-  {2, 0x0000, 0x0000, 0x0000C300UL},
-  {2, 0x0000, 0x0000, 0x0000CA00UL},
-  {2, 0x0000, 0x0000, 0x0000CF00UL},
+  {2, 0x0000, 0x0000, 0x00007F00UL},
+  {2, 0x0000, 0x0000, 0x00007900UL},
+  {2, 0x0000, 0x0000, 0x00008300UL},
+  {2, 0x0000, 0x0000, 0x00007300UL},
 };
 
 constexpr uint8_t IR_LEARNED_JUMP_COUNT = 1;
 constexpr LearnedIrCode IR_LEARNED_JUMP_CODES[] = {
-  {2, 0x0000, 0x0000, 0x00009100UL},
+  {2, 0x0000, 0x0000, 0x00004200UL},
 };
+

@@ -156,20 +156,21 @@ For remotes that do not behave like a simple NEC keypad, use the learner workflo
 2. Run the learner:
 
    ```sh
-   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 10 --build-game
+   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 30 --build-game
    ```
 
 3. Follow the prompts:
 
-   - press the same `PLAY` / start / pause / replay button 10 times
-   - press the same `JUMP` button 10 times
+   - press the same `PLAY` / start / pause / replay button 30 times
+   - wait 10 seconds while the LCD shows the transition prompt
+   - press the same `JUMP` button 30 times
 
 The learner writes unique packets to `include/ir_codes.h`. Duplicate packets inside one action are merged. Packets that appear in both `PLAY` and `JUMP` are treated as ambiguous and ignored, because they cannot safely represent two different actions.
 
 To learn and immediately upload the game:
 
 ```sh
-python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 10 --upload-test --upload-game
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --samples 30 --between-delay 10 --upload-test --upload-game
 ```
 
 If `pyserial` is missing:

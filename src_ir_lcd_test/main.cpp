@@ -53,6 +53,14 @@ void showCapturePrompt(const char* label) {
   lcd.print(F("PRESS BUTTON"));
 }
 
+void showIntermissionScreen() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(F("WAIT 10 SEC"));
+  lcd.setCursor(0, 1);
+  lcd.print(F("NEXT: JUMP"));
+}
+
 void showCommand(uint16_t command, bool isRepeat) {
   const uint8_t command8 = command & 0xFF;
   char binary[9];
@@ -133,6 +141,13 @@ void pollSerialCommands() {
   if (command == 'I') {
     showWaitingScreen();
     Serial.println(F("IR LCD test ready. Send P to learn PLAY, J to learn JUMP."));
+    return;
+  }
+
+  if (command == 'W') {
+    captureArmed = false;
+    showIntermissionScreen();
+    Serial.println(F("READY wait-next-jump"));
   }
 }
 

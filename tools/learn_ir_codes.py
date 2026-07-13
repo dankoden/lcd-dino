@@ -137,6 +137,21 @@ def capture_button_samples(ser, label, command, sample_count, timeout):
     return unique
 
 
+def wait_between_buttons(ser, delay_seconds):
+    if delay_seconds <= 0:
+        return
+
+    ser.write(b"W")
+    ser.flush()
+
+    print()
+    print(f"Waiting {delay_seconds} seconds before JUMP capture. LCD should show the next step.")
+
+    for remaining in range(delay_seconds, 0, -1):
+        print(f"  next step in {remaining}s")
+        time.sleep(1)
+
+
 def format_code_array(name, codes):
     rows = []
     for code in codes:
@@ -188,7 +203,8 @@ def main():
     parser.add_argument("--upload-test", action="store_true", help="Upload ir_lcd_test before learning")
     parser.add_argument("--build-game", action="store_true", help="Build the main game after writing codes")
     parser.add_argument("--upload-game", action="store_true", help="Upload the main game after writing codes")
-    parser.add_argument("--samples", type=int, default=10, help="Samples to capture for each button")
+    parser.add_argument("--samples", type=int, default=30, help="Samples to capture for each button")
+    parser.add_argument("--between-delay", type=int, default=10, help="Seconds to wait between PLAY and JUMP capture")
     args = parser.parse_args()
 
     if args.samples < 1:
@@ -205,6 +221,7 @@ def main():
         ser.flush()
 
         play_codes = capture_button_samples(ser, "PLAY", "P", args.samples, args.timeout)
+        wait_between_buttons(ser, args.between_delay)
         jump_codes = capture_button_samples(ser, "JUMP", "J", args.samples, args.timeout)
 
     play_codes, jump_codes = remove_ambiguous_codes(play_codes, jump_codes)
