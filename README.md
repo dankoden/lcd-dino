@@ -16,6 +16,7 @@ The project is built with PlatformIO and keeps the game loop non-blocking so IR 
 - Jump chirp and Game Over melody
 - Buzzer driver implemented without Arduino `tone()` to avoid IR timer conflicts
 - Separate LED-only test firmware for wiring checks
+- Separate IR+LCD test firmware for reading remote button codes
 
 ## Hardware
 
@@ -121,12 +122,35 @@ Expected behavior:
 
 If the LEDs do not light in this test, fix wiring before debugging the game logic.
 
+## IR LCD Test
+
+There is also a remote-code test firmware that reads the IR receiver and shows the last button command on the LCD:
+
+```sh
+pio run -e ir_lcd_test -t upload
+```
+
+LCD output:
+
+- row 1: command in hexadecimal, for example `HEX CMD: 0x1C`
+- row 2: command in binary, for example `BIN:00011100`
+
+The test also prints extended decode data to Serial Monitor:
+
+```sh
+pio device monitor --baud 9600
+```
+
+Serial output includes protocol, address, normalized command, raw decoded data, flags, and repeat state.
+
 ## Project Layout
 
 ```text
 .
 ├── platformio.ini
 ├── src/
+│   └── main.cpp
+├── src_ir_lcd_test/
 │   └── main.cpp
 └── src_led_test/
     └── main.cpp
@@ -137,4 +161,3 @@ If the LEDs do not light in this test, fix wiring before debugging the game logi
 - The project currently targets Arduino Uno.
 - IR feedback LED is disabled because Uno `LED_BUILTIN` is D13, and D13 is used by the buzzer.
 - The game keeps sound and LED effects non-blocking so replay after Game Over remains responsive.
-
