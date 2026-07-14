@@ -8,6 +8,7 @@ from pathlib import Path
 
 try:
     import serial
+    from serial.tools import list_ports
 except ImportError:
     print("pyserial is required: python3 -m pip install pyserial", file=sys.stderr)
     raise
@@ -30,6 +31,28 @@ LEARN_RE = re.compile(
 
 def run_pio(args):
     subprocess.run(["pio", *args], cwd=ROOT, check=True)
+
+
+def choose_serial_port(requested_port):
+    if requested_port:
+        return requested_port
+
+    ports = list(list_ports.comports())
+    preferred_ports = [
+        port.device for port in ports
+        if "usbserial" in port.device or "usbmodem" in port.device
+    ]
+
+    if len(preferred_ports) == 1:
+        print(f"Auto-detected serial port: {preferred_ports[0]}")
+        return preferred_ports[0]
+
+    if preferred_ports:
+        port_list = "\n".join(f"  {port}" for port in preferred_ports)
+        raise RuntimeError(f"Multiple USB serial ports found. Pass --port explicitly:\n{port_list}")
+
+    all_ports = "\n".join(f"  {port.device}" for port in ports) or "  none"
+    raise RuntimeError(f"No USB serial port found. Available ports:\n{all_ports}")
 
 
 def parse_learn_line(line):
@@ -141,7 +164,7 @@ def write_header(play_codes, jump_codes):
 
 def main():
     parser = argparse.ArgumentParser(description="Learn PLAY and JUMP IR codes over Serial and generate include/ir_codes.h.")
-    parser.add_argument("--port", default="/dev/cu.usbserial-110", help="Serial port for Arduino")
+    parser.add_argument("--port", help="Serial port for Arduino. Auto-detected when omitted")
     parser.add_argument("--baud", type=int, default=9600, help="Serial baud rate")
     parser.add_argument("--timeout", type=float, default=30.0, help="Seconds to wait for each button")
     parser.add_argument("--upload-test", action="store_true", help="Upload ir_lcd_test before learning")
@@ -158,11 +181,13 @@ def main():
     if args.samples < 1:
         parser.error("--samples must be at least 1")
 
+    port = choose_serial_port(args.port)
+
     if args.upload_test:
-        run_pio(["run", "-e", "ir_lcd_test", "-t", "upload", "--upload-port", args.port])
+        run_pio(["run", "-e", "ir_lcd_test", "-t", "upload", "--upload-port", port])
         time.sleep(1.5)
 
-    with serial.Serial(args.port, args.baud, timeout=0.25) as ser:
+    with serial.Serial(port, args.baud, timeout=0.25) as ser:
         time.sleep(2.0)
         ser.reset_input_buffer()
         ser.write(b"I")
@@ -184,7 +209,7 @@ def main():
         run_pio(["run", "-e", "uno"])
 
     if args.upload_game:
-        run_pio(["run", "-e", "uno", "-t", "upload", "--upload-port", args.port])
+        run_pio(["run", "-e", "uno", "-t", "upload", "--upload-port", port])
 
 
 if __name__ == "__main__":

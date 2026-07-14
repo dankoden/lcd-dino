@@ -147,19 +147,13 @@ Serial output includes protocol, address, normalized command, raw decoded data, 
 
 Use the learner workflow when you want to bind two buttons from two IR remotes: one for `PLAY` / pause / replay, and one for `JUMP`.
 
-1. Upload the IR LCD test firmware:
+1. Run the learner and let it upload the IR LCD test firmware:
 
    ```sh
-   pio run -e ir_lcd_test -t upload --upload-port /dev/cu.usbserial-110
+   python3 tools/learn_ir_codes.py --upload-test --upload-game
    ```
 
-2. Run the learner:
-
-   ```sh
-   python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --build-game
-   ```
-
-3. Follow the prompts:
+2. Follow the prompts:
 
    - press remote 1 `PLAY` / start / pause / replay once
    - press remote 2 `PLAY` / start / pause / replay once
@@ -171,13 +165,19 @@ The learner writes both `PLAY` codes and both `JUMP` codes to `include/ir_codes.
 To learn from both remotes and immediately upload the game with the generated codes:
 
 ```sh
-python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --upload-test --upload-game
+python3 tools/learn_ir_codes.py --upload-test --upload-game
 ```
 
 To learn only one remote:
 
 ```sh
-python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --remotes 1 --upload-test --upload-game
+python3 tools/learn_ir_codes.py --remotes 1 --upload-test --upload-game
+```
+
+If multiple USB serial boards are connected, pass the port explicitly:
+
+```sh
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-1110 --upload-test --upload-game
 ```
 
 If `pyserial` is missing:
