@@ -150,6 +150,14 @@ void pollSerialCommands() {
 
   const char command = Serial.read();
 
+  if (command == 'O') {
+    strcpy(captureLabel, "POWER");
+    captureArmed = true;
+    showCapturePrompt(captureLabel);
+    Serial.println(F("READY label=POWER"));
+    return;
+  }
+
   if (command == 'P') {
     strcpy(captureLabel, "PLAY");
     captureArmed = true;
@@ -168,7 +176,7 @@ void pollSerialCommands() {
 
   if (command == 'I') {
     showWaitingScreen();
-    Serial.println(F("IR LCD test ready. Send P to learn PLAY, J to learn JUMP."));
+    Serial.println(F("IR LCD test ready. Send O to learn POWER, P to learn PLAY, J to learn JUMP."));
     return;
   }
 
@@ -211,7 +219,7 @@ void setup() {
 
   IrReceiver.begin(IR_PIN, DISABLE_LED_FEEDBACK);
 
-  Serial.println(F("IR LCD test ready. Send P to learn PLAY, J to learn JUMP."));
+  Serial.println(F("IR LCD test ready. Send O to learn POWER, P to learn PLAY, J to learn JUMP."));
 }
 
 void loop() {

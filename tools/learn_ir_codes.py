@@ -118,14 +118,31 @@ def code_key(code):
     return ("raw", code["protocol"], code["address"], code["raw"])
 
 
-def ensure_distinct(play_codes, jump_codes):
-    play_keys = {code_key(code) for code in play_codes}
-    jump_keys = {code_key(code) for code in jump_codes}
-    if play_keys & jump_keys:
-        raise RuntimeError("PLAY and JUMP resolved to the same IR code. Choose different buttons.")
+def ensure_distinct(power_codes, play_codes, jump_codes):
+    action_keys = {
+        "POWER": {code_key(code) for code in power_codes},
+        "PLAY": {code_key(code) for code in play_codes},
+        "JUMP": {code_key(code) for code in jump_codes},
+    }
+
+    action_names = list(action_keys)
+    for index, left_name in enumerate(action_names):
+        for right_name in action_names[index + 1:]:
+            if action_keys[left_name] & action_keys[right_name]:
+                raise RuntimeError(
+                    f"{left_name} and {right_name} resolved to the same IR code. "
+                    "Choose different buttons."
+                )
 
 
 def format_code_array(name, codes):
+    if not codes:
+        return f"""constexpr uint8_t IR_LEARNED_{name}_COUNT = 0;
+const LearnedIrCode IR_LEARNED_{name}_CODES[1] PROGMEM = {{
+  {{0, 0x0000, 0x0000, 0x00000000UL}},
+}};
+"""
+
     rows = []
     for code in codes:
         rows.append(
@@ -141,7 +158,7 @@ const LearnedIrCode IR_LEARNED_{name}_CODES[] PROGMEM = {{
 """
 
 
-def format_header(play_codes, jump_codes):
+def format_header(power_codes, play_codes, jump_codes):
     return f"""#pragma once
 
 #include <Arduino.h>
@@ -157,22 +174,24 @@ struct LearnedIrCode {{
   uint32_t raw;
 }};
 
+{format_code_array("POWER", power_codes)}
 {format_code_array("PLAY", play_codes)}
 {format_code_array("JUMP", jump_codes)}
 """
 
 
-def write_header(play_codes, jump_codes):
+def write_header(power_codes, play_codes, jump_codes):
     HEADER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    HEADER_PATH.write_text(format_header(play_codes, jump_codes), encoding="utf-8")
+    HEADER_PATH.write_text(format_header(power_codes, play_codes, jump_codes), encoding="utf-8")
     print()
     print(f"Wrote {HEADER_PATH}")
+    print(f"POWER unique codes: {len(power_codes)}")
     print(f"PLAY unique codes: {len(play_codes)}")
     print(f"JUMP unique codes: {len(jump_codes)}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Learn PLAY and JUMP IR codes over Serial and generate include/ir_codes.h.")
+    parser = argparse.ArgumentParser(description="Learn POWER, PLAY, and JUMP IR codes over Serial and generate include/ir_codes.h.")
     parser.add_argument("--port", help="Serial port for Arduino. Auto-detected when omitted")
     parser.add_argument("--baud", type=int, default=9600, help="Serial baud rate")
     parser.add_argument("--timeout", type=float, default=30.0, help="Seconds to wait for each button")
@@ -202,11 +221,18 @@ def main():
         ser.write(b"I")
         ser.flush()
 
+        power_codes = []
         play_codes = []
         jump_codes = []
 
-        total_captures = args.remotes * 2
+        total_captures = args.remotes * 3
         capture_index = 0
+
+        for remote_index in range(1, args.remotes + 1):
+            if capture_index > 0:
+                pause_between_captures(args.between_delay)
+            power_codes.append(capture_button(ser, "POWER", "O", args.timeout, remote_index))
+            capture_index += 1
 
         for remote_index in range(1, args.remotes + 1):
             if capture_index > 0:
@@ -220,8 +246,8 @@ def main():
             jump_codes.append(capture_button(ser, "JUMP", "J", args.timeout, remote_index))
             capture_index += 1
 
-    ensure_distinct(play_codes, jump_codes)
-    write_header(play_codes, jump_codes)
+    ensure_distinct(power_codes, play_codes, jump_codes)
+    write_header(power_codes, play_codes, jump_codes)
 
     if args.build_game or args.upload_game:
         run_pio(["run", "-e", "uno"])

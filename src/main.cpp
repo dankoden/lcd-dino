@@ -620,6 +620,40 @@ void resetIrDebounce() {
   lastAcceptedIrRaw = 0;
 }
 
+void powerOnSystem() {
+  systemAwake = true;
+  gameState = GameState::Waiting;
+  jumping = false;
+  jumpSound.active = false;
+  gameOverMelody.active = false;
+  stopBuzzer();
+  resetIrDebounce();
+
+  lcd.backlight();
+  lcd.clear();
+  invalidatePreviousBuffer();
+  setWaitingLeds();
+  drawWaitingScreen();
+  printGameAction(F("powerOn"));
+}
+
+void powerOffSystem() {
+  systemAwake = false;
+  gameState = GameState::Waiting;
+  jumping = false;
+  jumpSound.active = false;
+  gameOverMelody.active = false;
+  stopBuzzer();
+  resetIrDebounce();
+
+  clearScreenBuffer();
+  lcd.clear();
+  lcd.noBacklight();
+  invalidatePreviousBuffer();
+  setPowerIdleOutputs();
+  printGameAction(F("powerOff"));
+}
+
 void startNewGame() {
   score = 0;
   jumping = false;
@@ -784,13 +818,6 @@ void updatePausedState() {
 }
 
 void handlePlayPauseButton() {
-  if (!systemAwake) {
-    systemAwake = true;
-    lcd.backlight();
-    lcd.clear();
-    invalidatePreviousBuffer();
-  }
-
   switch (gameState) {
     case GameState::Waiting:
       startNewGame();
@@ -838,6 +865,19 @@ bool isLearnedPlayCommand(const IRData& data, uint16_t command) {
   return false;
 }
 
+bool isLearnedPowerCommand(const IRData& data, uint16_t command) {
+  for (uint8_t i = 0; i < IR_LEARNED_POWER_COUNT; i++) {
+    LearnedIrCode learnedCode;
+    memcpy_P(&learnedCode, &IR_LEARNED_POWER_CODES[i], sizeof(learnedCode));
+
+    if (learnedCodeMatches(learnedCode, data, command)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool isLearnedJumpCommand(const IRData& data, uint16_t command) {
   for (uint8_t i = 0; i < IR_LEARNED_JUMP_COUNT; i++) {
     LearnedIrCode learnedCode;
@@ -865,6 +905,14 @@ bool isStandardJumpCommand(const IRData& data, uint16_t command) {
          command == CMD_JUMP_VOL_UP;
 }
 
+bool isPowerCommand(const IRData& data, uint16_t command) {
+  if (IR_LEARNED_POWER_COUNT > 0) {
+    return isLearnedPowerCommand(data, command);
+  }
+
+  return false;
+}
+
 bool isPlayCommand(const IRData& data, uint16_t command) {
   if (IR_LEARNED_PLAY_COUNT > 0) {
     return isLearnedPlayCommand(data, command);
@@ -881,7 +929,24 @@ bool isJumpCommand(const IRData& data, uint16_t command) {
   return isStandardJumpCommand(data, command);
 }
 
+void handlePowerButton() {
+  if (systemAwake) {
+    powerOffSystem();
+  } else {
+    powerOnSystem();
+  }
+}
+
 void handleRemoteCommand(const IRData& data, uint16_t command) {
+  if (isPowerCommand(data, command)) {
+    handlePowerButton();
+    return;
+  }
+
+  if (!systemAwake) {
+    return;
+  }
+
   if (isPlayCommand(data, command)) {
     handlePlayPauseButton();
     return;
@@ -930,9 +995,9 @@ bool shouldAcceptIrCommand(const IRData& data, uint16_t command, bool isRepeat) 
 
   const unsigned long now = millis();
 
-  // Holding PLAY should not rapidly pause/resume, but the first PLAY after
+  // Holding PLAY/POWER should not rapidly toggle state, but the first PLAY after
   // Game Over must be accepted. finishGame() clears this debounce state.
-  if (isRepeat && isPlayCommand(data, command)) {
+  if (isRepeat && (isPlayCommand(data, command) || isPowerCommand(data, command))) {
     return false;
   }
 
@@ -1019,7 +1084,7 @@ void setup() {
   IrReceiver.begin(IR_PIN, DISABLE_LED_FEEDBACK);
 
   randomSeed(analogRead(A0) ^ analogRead(A1) ^ micros());
-  Serial.println(F("LCD Dino ready. Press PLAY to wake and start."));
+  Serial.println(F("LCD Dino ready. Press POWER to wake."));
 }
 
 void loop() {
