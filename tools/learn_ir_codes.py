@@ -103,6 +103,15 @@ def capture_button(ser, label, command, timeout, remote_index=None):
     return wait_for_learn(ser, label, timeout)
 
 
+def pause_between_captures(delay):
+    if delay <= 0:
+        return
+
+    print()
+    print(f"Next button in {delay:g} seconds...")
+    time.sleep(delay)
+
+
 def code_key(code):
     if code["command"]:
         return ("cmd", code["protocol"], code["address"], code["command"])
@@ -172,7 +181,7 @@ def main():
     parser.add_argument("--upload-game", action="store_true", help="Upload the main game after writing codes")
     parser.add_argument("--remotes", type=int, default=2, help="Number of remotes to learn")
     parser.add_argument("--samples", type=int, default=1, help="Deprecated; only one sample is used for each button")
-    parser.add_argument("--between-delay", type=int, default=0, help="Deprecated; no delay is used")
+    parser.add_argument("--between-delay", type=float, default=3.0, help="Seconds to pause between learned buttons")
     args = parser.parse_args()
 
     if args.remotes < 1:
@@ -196,11 +205,20 @@ def main():
         play_codes = []
         jump_codes = []
 
-        for remote_index in range(1, args.remotes + 1):
-            play_codes.append(capture_button(ser, "PLAY", "P", args.timeout, remote_index))
+        total_captures = args.remotes * 2
+        capture_index = 0
 
         for remote_index in range(1, args.remotes + 1):
+            if capture_index > 0:
+                pause_between_captures(args.between_delay)
+            play_codes.append(capture_button(ser, "PLAY", "P", args.timeout, remote_index))
+            capture_index += 1
+
+        for remote_index in range(1, args.remotes + 1):
+            if capture_index > 0 and capture_index < total_captures:
+                pause_between_captures(args.between_delay)
             jump_codes.append(capture_button(ser, "JUMP", "J", args.timeout, remote_index))
+            capture_index += 1
 
     ensure_distinct(play_codes, jump_codes)
     write_header(play_codes, jump_codes)

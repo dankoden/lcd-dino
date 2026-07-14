@@ -162,6 +162,12 @@ Use the learner workflow when you want to bind two buttons from two IR remotes: 
 
 The learner writes both `PLAY` codes and both `JUMP` codes to `include/ir_codes.h`. If learned codes are present, the game uses only those learned buttons for `PLAY` and `JUMP`.
 
+By default, the learner pauses for 3 seconds between buttons so you have time to switch remotes. To change that delay:
+
+```sh
+python3 tools/learn_ir_codes.py --between-delay 5 --upload-test --upload-game
+```
+
 To learn from both remotes and immediately upload the game with the generated codes:
 
 ```sh
