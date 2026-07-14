@@ -161,6 +161,7 @@ uint32_t lastAcceptedIrRaw = 0;
 bool alternateRunFrame = false;
 bool pauseLedState = false;
 bool gameOverReplayLedShown = false;
+bool systemAwake = false;
 uint8_t lastIrPinLevel = HIGH;
 uint16_t irPinEdgeCount = 0;
 unsigned long lastIrActivityReportTime = 0;
@@ -297,6 +298,12 @@ void updateLcdFromBuffer() {
 void setWaitingLeds() {
   digitalWrite(GREEN_LED_PIN, HIGH);
   digitalWrite(RED_LED_PIN, HIGH);
+}
+
+void setPowerIdleOutputs() {
+  digitalWrite(GREEN_LED_PIN, LOW);
+  digitalWrite(RED_LED_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
 }
 
 void setRunningLeds() {
@@ -777,6 +784,13 @@ void updatePausedState() {
 }
 
 void handlePlayPauseButton() {
+  if (!systemAwake) {
+    systemAwake = true;
+    lcd.backlight();
+    lcd.clear();
+    invalidatePreviousBuffer();
+  }
+
   switch (gameState) {
     case GameState::Waiting:
       startNewGame();
@@ -983,13 +997,12 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(IR_PIN, INPUT);
 
-  setWaitingLeds();
+  setPowerIdleOutputs();
 
   Wire.begin();
   Wire.setClock(400000);
 
   lcd.init();
-  lcd.backlight();
   lcd.createChar(CHAR_DINO_RUN_1, dinoRunFrame1);
   lcd.createChar(CHAR_DINO_RUN_2, dinoRunFrame2);
   lcd.createChar(CHAR_DINO_JUMP, dinoJumpFrame);
@@ -999,13 +1012,14 @@ void setup() {
   lcd.createChar(CHAR_PLAY, playSymbol);
   lcd.createChar(CHAR_SKULL, skullSymbol);
 
+  lcd.clear();
+  lcd.noBacklight();
   invalidatePreviousBuffer();
   // D13 is used by the buzzer, so do not let IRremote use LED_BUILTIN feedback.
   IrReceiver.begin(IR_PIN, DISABLE_LED_FEEDBACK);
 
   randomSeed(analogRead(A0) ^ analogRead(A1) ^ micros());
-  Serial.println(F("LCD Dino ready. Press PLAY and 5/OK, then read IR lines here."));
-  drawWaitingScreen();
+  Serial.println(F("LCD Dino ready. Press PLAY to wake and start."));
 }
 
 void loop() {

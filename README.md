@@ -9,6 +9,7 @@ The project is built with PlatformIO and keeps the game loop non-blocking so IR 
 - Arduino Uno / ATmega328P
 - 16x2 I2C LCD with custom dino, cactus, ground, play, and game-over characters
 - IR remote control
+- Dark power-on idle: LCD backlight, LEDs, and buzzer stay off until `PLAY` is pressed
 - `PLAY/PAUSE` starts, pauses, resumes, and restarts after Game Over
 - `5` / `OK` jumps
 - Dirty-cell LCD rendering during gameplay to reduce flicker
@@ -45,18 +46,18 @@ LiquidCrystal_I2C lcd(0x3F, 16, 2);
 
 | Remote button | IR command | Action |
 | --- | --- | --- |
-| `PLAY/PAUSE` | `0x43` | Start, pause, resume, restart after Game Over |
+| `PLAY/PAUSE` | `0x43` | Wake from power-on idle, start, pause, resume, restart after Game Over |
 | `5` / `OK` | `0x1C` | Jump while the game is running |
 | `CH` | `0x46` | Jump fallback |
 | `VOL+` | `0x15` | Jump fallback |
 
-Press `PLAY/PAUSE` first to start the game. Pressing `5` while the start screen is shown is ignored because the game is still waiting.
+After power is connected, the LCD backlight, LEDs, and buzzer stay off. Press `PLAY/PAUSE` first to wake the board and start the game. Pressing `5` before `PLAY/PAUSE` is ignored because the game is still waiting.
 
 ## LEDs
 
 | State | Red LED D8 | Green LED D9 |
 | --- | --- | --- |
-| Waiting for `PLAY` | On | On |
+| Power-on idle / waiting for first `PLAY` | Off | Off |
 | Running | Off | On |
 | Game Over alert | On for 5 seconds | Off |
 | Waiting for replay | Off | On |
