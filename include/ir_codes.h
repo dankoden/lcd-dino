@@ -13,9 +13,10 @@ struct LearnedIrCode {
   uint32_t raw;
 };
 
-constexpr uint8_t IR_LEARNED_POWER_COUNT = 0;
-const LearnedIrCode IR_LEARNED_POWER_CODES[1] PROGMEM = {
-  {0, 0x0000, 0x0000, 0x00000000UL},
+constexpr uint8_t IR_LEARNED_POWER_COUNT = 2;
+const LearnedIrCode IR_LEARNED_POWER_CODES[] PROGMEM = {
+  {7, 0x0000, 0x0047, 0xB847FF00UL},
+  {7, 0x0040, 0x0012, 0xED12BF40UL},
 };
 
 constexpr uint8_t IR_LEARNED_PLAY_COUNT = 2;
@@ -26,6 +27,7 @@ const LearnedIrCode IR_LEARNED_PLAY_CODES[] PROGMEM = {
 
 constexpr uint8_t IR_LEARNED_JUMP_COUNT = 2;
 const LearnedIrCode IR_LEARNED_JUMP_CODES[] PROGMEM = {
-  {7, 0x0040, 0x0019, 0xE619BF40UL},
   {7, 0x0000, 0x001C, 0xE31CFF00UL},
+  {7, 0x0040, 0x0019, 0xE619BF40UL},
 };
+
