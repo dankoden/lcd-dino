@@ -69,9 +69,12 @@ def wait_for_learn(ser, label, timeout):
     raise TimeoutError(f"Timed out waiting for {label} IR code")
 
 
-def capture_button(ser, label, command, timeout):
+def capture_button(ser, label, command, timeout, remote_index=None):
     print()
-    print(f"Press the remote button for {label}.")
+    if remote_index is None:
+        print(f"Press the remote button for {label}.")
+    else:
+        print(f"Press remote {remote_index} button for {label}.")
     ser.write(command.encode("ascii"))
     ser.flush()
     return wait_for_learn(ser, label, timeout)
@@ -83,9 +86,11 @@ def code_key(code):
     return ("raw", code["protocol"], code["address"], code["raw"])
 
 
-def ensure_distinct(play_code, jump_code):
-    if code_key(play_code) == code_key(jump_code):
-        raise RuntimeError("PLAY and JUMP resolved to the same IR code. Choose two different buttons.")
+def ensure_distinct(play_codes, jump_codes):
+    play_keys = {code_key(code) for code in play_codes}
+    jump_keys = {code_key(code) for code in jump_codes}
+    if play_keys & jump_keys:
+        raise RuntimeError("PLAY and JUMP resolved to the same IR code. Choose different buttons.")
 
 
 def format_code_array(name, codes):
@@ -135,16 +140,20 @@ def write_header(play_codes, jump_codes):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Learn one PLAY and one JUMP IR code over Serial and generate include/ir_codes.h.")
+    parser = argparse.ArgumentParser(description="Learn PLAY and JUMP IR codes over Serial and generate include/ir_codes.h.")
     parser.add_argument("--port", default="/dev/cu.usbserial-110", help="Serial port for Arduino")
     parser.add_argument("--baud", type=int, default=9600, help="Serial baud rate")
     parser.add_argument("--timeout", type=float, default=30.0, help="Seconds to wait for each button")
     parser.add_argument("--upload-test", action="store_true", help="Upload ir_lcd_test before learning")
     parser.add_argument("--build-game", action="store_true", help="Build the main game after writing codes")
     parser.add_argument("--upload-game", action="store_true", help="Upload the main game after writing codes")
+    parser.add_argument("--remotes", type=int, default=2, help="Number of remotes to learn")
     parser.add_argument("--samples", type=int, default=1, help="Deprecated; only one sample is used for each button")
     parser.add_argument("--between-delay", type=int, default=0, help="Deprecated; no delay is used")
     args = parser.parse_args()
+
+    if args.remotes < 1:
+        parser.error("--remotes must be at least 1")
 
     if args.samples < 1:
         parser.error("--samples must be at least 1")
@@ -159,11 +168,17 @@ def main():
         ser.write(b"I")
         ser.flush()
 
-        play_code = capture_button(ser, "PLAY", "P", args.timeout)
-        jump_code = capture_button(ser, "JUMP", "J", args.timeout)
+        play_codes = []
+        jump_codes = []
 
-    ensure_distinct(play_code, jump_code)
-    write_header([play_code], [jump_code])
+        for remote_index in range(1, args.remotes + 1):
+            play_codes.append(capture_button(ser, "PLAY", "P", args.timeout, remote_index))
+
+        for remote_index in range(1, args.remotes + 1):
+            jump_codes.append(capture_button(ser, "JUMP", "J", args.timeout, remote_index))
+
+    ensure_distinct(play_codes, jump_codes)
+    write_header(play_codes, jump_codes)
 
     if args.build_game or args.upload_game:
         run_pio(["run", "-e", "uno"])

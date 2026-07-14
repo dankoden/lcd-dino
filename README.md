@@ -145,7 +145,7 @@ Serial output includes protocol, address, normalized command, raw decoded data, 
 
 ## Learning Another Remote
 
-Use the learner workflow when you want to bind two buttons from a normal IR remote: one for `PLAY` / pause / replay, and one for `JUMP`.
+Use the learner workflow when you want to bind two buttons from two IR remotes: one for `PLAY` / pause / replay, and one for `JUMP`.
 
 1. Upload the IR LCD test firmware:
 
@@ -161,15 +161,23 @@ Use the learner workflow when you want to bind two buttons from a normal IR remo
 
 3. Follow the prompts:
 
-   - press the `PLAY` / start / pause / replay button once
-   - press the `JUMP` button once
+   - press remote 1 `PLAY` / start / pause / replay once
+   - press remote 2 `PLAY` / start / pause / replay once
+   - press remote 1 `JUMP` once
+   - press remote 2 `JUMP` once
 
-The learner writes the two button codes to `include/ir_codes.h`. If learned codes are present, the game uses only those learned buttons for `PLAY` and `JUMP`.
+The learner writes both `PLAY` codes and both `JUMP` codes to `include/ir_codes.h`. If learned codes are present, the game uses only those learned buttons for `PLAY` and `JUMP`.
 
-To learn and immediately upload the game:
+To learn from both remotes and immediately upload the game with the generated codes:
 
 ```sh
 python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --upload-test --upload-game
+```
+
+To learn only one remote:
+
+```sh
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-110 --remotes 1 --upload-test --upload-game
 ```
 
 If `pyserial` is missing:

@@ -13,10 +13,13 @@ struct LearnedIrCode {
   uint32_t raw;
 };
 
-constexpr uint8_t IR_LEARNED_PLAY_COUNT = 0;
+constexpr uint8_t IR_LEARNED_PLAY_COUNT = 1;
 const LearnedIrCode IR_LEARNED_PLAY_CODES[] PROGMEM = {
+  {7, 0x0040, 0x000A, 0xF50ABF40UL},
 };
 
-constexpr uint8_t IR_LEARNED_JUMP_COUNT = 0;
+constexpr uint8_t IR_LEARNED_JUMP_COUNT = 1;
 const LearnedIrCode IR_LEARNED_JUMP_CODES[] PROGMEM = {
+  {7, 0x0040, 0x0019, 0xE619BF40UL},
 };
+
