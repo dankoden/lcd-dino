@@ -104,7 +104,7 @@ pio run -e uno -t upload
 If PlatformIO does not auto-detect the board, pass the port explicitly:
 
 ```sh
-pio run -e uno -t upload --upload-port /dev/cu.usbserial-110
+pio run -e uno -t upload --upload-port /dev/cu.usbserial-XXXX
 ```
 
 ## LED Wiring Test
@@ -177,7 +177,7 @@ python3 tools/learn_ir_codes.py --remotes 1 --upload-test --upload-game
 If multiple USB serial boards are connected, pass the port explicitly:
 
 ```sh
-python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-1110 --upload-test --upload-game
+python3 tools/learn_ir_codes.py --port /dev/cu.usbserial-XXXX --upload-test --upload-game
 ```
 
 If `pyserial` is missing:
